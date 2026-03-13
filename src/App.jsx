@@ -567,14 +567,7 @@ function ConversationPage({ prospectId, advisorProfile }) {
       const result = await API.replies.process({ prospect_id: prospectId, outreach_message_id: latestOutreach.id, reply_text: replyText.trim() });
       setReplyResult(result);
       if (result.policy_result?.decision === "ESCALATE_TO_JOE") {
-        try {
-          await API.alerts.joe({
-            to_email: advisorProfile?.escalationEmail || "",
-            subject: `Hot Prospect: ${data?.prospect?.full_name} replied`,
-            body: `Prospect: ${data?.prospect?.full_name}\nClassification: ${result.classification_result?.classification}`
-          });
-          setAlertSent(true);
-        } catch { }
+        setAlertSent(true);
       }
       load();
     } catch (e) { setReplyError(e.message); }
