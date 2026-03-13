@@ -211,6 +211,7 @@ const styles = `
   .form-input, .form-select, .form-textarea { width: 100%; background: var(--ink-3); border: 1px solid var(--rule-2); border-radius: 2px; color: var(--soft); font-family: var(--font-mono); font-size: 12px; padding: 10px 12px; outline: none; transition: border-color 0.12s; }
   .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--signal-dim); box-shadow: 0 0 0 3px var(--signal-glow); }
   .form-textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
+  .form-input::placeholder, .form-textarea::placeholder { color: var(--muted); opacity: 1; }
   .form-select { cursor: pointer; }
   option { background: var(--ink-3); }
   .btn-primary { background: var(--signal); color: #fff; border: none; border-radius: 2px; font-family: var(--font-body); font-size: 13px; font-weight: 600; padding: 11px 22px; cursor: pointer; width: 100%; transition: opacity 0.12s; }
@@ -293,9 +294,9 @@ function AuthScreen() {
 
   const handleSignUp = async () => {
     setLoading(true); setError(null);
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: "https://prospect-intel-frontend.vercel.app" } });
     if (error) setError(error.message);
-    else setSuccess("Account created. Sign in below — or check your email if confirmation is required.");
+    else { setTab("signin"); setSuccess("Account created. Check your email to verify, then sign in."); }
     setLoading(false);
   };
 
@@ -353,8 +354,17 @@ function OnboardingScreen({ userEmail, onComplete }) {
     finally { setExtracting(false); }
   };
 
-  const handleContinue = () => {
-    onComplete({ name: name.trim() || userEmail.split("@")[0], firm: firm.trim(), email: userEmail, styleResult });
+  const handleContinue = async () => {
+    const resolvedName = name.trim() || userEmail.split("@")[0];
+    try {
+      await api("/advisor/profile", {
+        method: "POST",
+        body: JSON.stringify({ name: resolvedName, firm: firm.trim(), escalation_email: userEmail }),
+      });
+    } catch (e) {
+      // non-blocking — continue even if save fails
+    }
+    onComplete({ name: resolvedName, firm: firm.trim(), email: userEmail, styleResult });
   };
 
   return (
@@ -467,6 +477,7 @@ function TopBar({ page, selectedName, onBack }) {
 function SettingsPage({ advisorProfile, onUpdate }) {
   const [name, setName] = useState(advisorProfile?.name || "");
   const [firm, setFirm] = useState(advisorProfile?.firm || "");
+  const [escalationEmail, setEscalationEmail] = useState(advisorProfile?.escalationEmail || "");
   const [sample, setSample] = useState(advisorProfile?.sample || "");
   const [styleResult, setStyleResult] = useState(advisorProfile?.styleResult || null);
   const [extracting, setExtracting] = useState(false);
@@ -482,10 +493,18 @@ function SettingsPage({ advisorProfile, onUpdate }) {
     finally { setExtracting(false); }
   };
 
-  const handleSave = () => {
-    onUpdate({ name, firm, sample, styleResult });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const handleSave = async () => {
+    try {
+      await api("/advisor/profile", {
+        method: "POST",
+        body: JSON.stringify({ name, firm, escalation_email: escalationEmail }),
+      });
+      onUpdate({ name, firm, sample, styleResult, escalationEmail });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      setError(e.message);
+    }
   };
 
   return (
@@ -511,6 +530,10 @@ function SettingsPage({ advisorProfile, onUpdate }) {
               <label className="form-label">Firm</label>
               <input className="form-input" value={firm} onChange={e => setFirm(e.target.value)} />
             </div>
+          </div>
+          <div className="form-group" style={{ marginTop: 12 }}>
+            <label className="form-label">Escalation Alert Email</label>
+            <input className="form-input" type="email" value={escalationEmail} onChange={e => setEscalationEmail(e.target.value)} placeholder="Email to receive HOT prospect alerts" />
           </div>
         </div>
       </div>
@@ -672,6 +695,8 @@ function ConversationPage({ prospectId }) {
           <div className="prospect-card-loc">{(prospect.location || "").split(".")[0]}</div>
           <div className="meta-row"><span className="meta-label">ID</span><span className="meta-value" style={{ fontSize: 9 }}>{prospect.id?.slice(0, 8)}…</span></div>
           <div className="meta-row"><span className="meta-label">Created</span><span className="meta-value">{formatTs(prospect.created_at)}</span></div>
+          {prospect.email && <div className="meta-row"><span className="meta-label">Email</span><span className="meta-value"><a href={`mailto:${prospect.email}`} style={{color:"var(--signal)",textDecoration:"none"}}>{prospect.email}</a></span></div>}
+          {prospect.phone && <div className="meta-row"><span className="meta-label">Phone</span><span className="meta-value"><a href={`tel:${prospect.phone}`} style={{color:"var(--signal)",textDecoration:"none"}}>{prospect.phone}</a></span></div>}
           <div className="meta-row"><span className="meta-label">Outreach</span><span className="meta-value">{allOutreach.length} msg</span></div>
         </div>
         <div className="timeline-section">
@@ -957,21 +982,42 @@ function InjectPage({ onSuccess }) {
 export default function App() {
   const [session, setSession] = useState(undefined);
   const [onboarded, setOnboarded] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [advisorProfile, setAdvisorProfile] = useState(null);
   const [page, setPage] = useState("prospects");
   const [selectedId, setSelectedId] = useState(null);
   const [selectedName, setSelectedName] = useState(null);
   const [apiStatus, setApiStatus] = useState("checking");
 
+  // On session load, fetch advisor profile from backend to restore state
+  const fetchProfile = async () => {
+    setProfileLoading(true);
+    try {
+      const data = await api("/advisor/profile");
+      if (data.exists && data.name) {
+        setAdvisorProfile({ name: data.name, firm: data.firm, escalationEmail: data.escalation_email });
+        setOnboarded(true);
+      } else {
+        setOnboarded(false);
+        setAdvisorProfile(null);
+      }
+    } catch {
+      setOnboarded(false);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) _token = session.access_token;
+      if (session) { _token = session.access_token; fetchProfile(); }
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       _token = session?.access_token || null;
       if (!session) { setOnboarded(false); setAdvisorProfile(null); }
+      if (session) fetchProfile();
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -983,10 +1029,13 @@ export default function App() {
   const handleSignOut = () => supabase.auth.signOut();
   const handleSelect = (id, name) => { setSelectedId(id); setSelectedName(name || id?.slice(0, 8)); };
   const handleBack = () => { setSelectedId(null); setSelectedName(null); };
-  const handleOnboardComplete = (profile) => { setAdvisorProfile(profile); setOnboarded(true); };
+  const handleOnboardComplete = (profile) => {
+    setAdvisorProfile(profile);
+    setOnboarded(true);
+  };
   const handleNavigate = (p) => { handleBack(); setPage(p); };
 
-  if (session === undefined) {
+  if (session === undefined || (session && profileLoading)) {
     return (
       <>
         <style>{styles}</style>
@@ -1013,7 +1062,10 @@ export default function App() {
               ? <ConversationPage prospectId={selectedId} />
               : page === "prospects" ? <ProspectsPage onSelect={handleSelect} />
               : page === "inject" ? <InjectPage onSuccess={handleSelect} />
-              : page === "settings" ? <SettingsPage advisorProfile={advisorProfile} onUpdate={p => setAdvisorProfile({ ...advisorProfile, ...p })} />
+              : page === "settings" ? <SettingsPage advisorProfile={advisorProfile} onUpdate={p => {
+                const updated = { ...advisorProfile, ...p };
+                setAdvisorProfile(updated);
+              }} />
               : null}
           </div>
         </div>
