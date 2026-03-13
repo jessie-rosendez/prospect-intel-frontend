@@ -1044,12 +1044,21 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) { _token = session.access_token; fetchProfile(); }
+      else setSession(null);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
       _token = session?.access_token || null;
-      if (!session) { setOnboarded(false); setAdvisorProfile(null); }
-      if (session) fetchProfile();
+      if (!session) {
+        setSession(null);
+        setOnboarded(false);
+        setAdvisorProfile(null);
+      } else {
+        setSession(prev => {
+          // Only fetch profile if this is a new session (sign in), not a token refresh
+          if (!prev) fetchProfile();
+          return session;
+        });
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
