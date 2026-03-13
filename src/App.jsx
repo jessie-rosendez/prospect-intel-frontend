@@ -855,20 +855,35 @@ function ConversationPage({ prospectId }) {
 const PIPELINE_STEPS = ["Event Received", "Trigger Saved", "Agent Analysis", "Outreach Generated", "Email Sent"];
 
 function InjectPage({ onSuccess }) {
-  const [rawText, setRawText] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [location, setLocation] = useState("");
+  const [notes, setNotes] = useState("");
   const [eventType, setEventType] = useState("Business Exit");
-  const [toEmail, setToEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(-1);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
 
+  const buildRawText = () => {
+    const name = `${firstName.trim()} ${lastName.trim()}`.trim();
+    const parts = [`Prospect Name: ${name}`];
+    if (email.trim()) parts.push(`Email: ${email.trim()}`);
+    if (phone.trim()) parts.push(`Phone: ${phone.trim()}`);
+    if (location.trim()) parts.push(`Location: ${location.trim()}`);
+    if (notes.trim()) parts.push(`Notes: ${notes.trim()}`);
+    return parts.join("\n");
+  };
+
   const handleInject = async () => {
-    if (!rawText.trim() || !toEmail.trim()) return;
+    if (!firstName.trim() || !email.trim()) return;
     setLoading(true); setError(null); setResult(null); setActiveStep(0);
     try {
       await new Promise(r => setTimeout(r, 250)); setActiveStep(1);
-      const data = await API.triggers.ingest({ raw_text: rawText.trim(), event_type: eventType, to_email: toEmail.trim(), auto_send: true });
+      const raw_text = buildRawText();
+      const data = await API.triggers.ingest({ raw_text, event_type: eventType, to_email: email.trim(), phone: phone.trim() || null, auto_send: true });
       setActiveStep(2); await new Promise(r => setTimeout(r, 300));
       setActiveStep(3); await new Promise(r => setTimeout(r, 200));
       setActiveStep(4); setResult(data);
@@ -895,31 +910,48 @@ function InjectPage({ onSuccess }) {
         <div>
           {error && <div className="error-msg">{error}</div>}
           <div className="section-card">
-            <div className="section-card-header"><span className="section-card-title">Event Data</span></div>
+            <div className="section-card-header"><span className="section-card-title">Contact</span></div>
             <div className="section-card-body">
-              <div className="form-group">
-                <label className="form-label">Raw Event Text</label>
-                <textarea
-                  className="form-textarea"
-                  placeholder={"Prospect Name: First Last\nEmail: prospect@email.com\nLocation: City, State\nEstimated Liquidity: $5000000\nNotes: Additional context..."}
-                  value={rawText}
-                  onChange={e => setRawText(e.target.value)}
-                  style={{ minHeight: 160 }}
-                />
+              <div className="two-col">
+                <div className="form-group">
+                  <label className="form-label">First Name</label>
+                  <input className="form-input" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Jennifer" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Last Name</label>
+                  <input className="form-input" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Walsh" />
+                </div>
               </div>
               <div className="two-col">
                 <div className="form-group">
-                  <label className="form-label">Event Type</label>
-                  <select className="form-select" value={eventType} onChange={e => setEventType(e.target.value)}>
-                    {EVENT_TYPES.map(t => <option key={t}>{t}</option>)}
-                  </select>
+                  <label className="form-label">Email</label>
+                  <input className="form-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jennifer@example.com" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Destination Email</label>
-                  <input className="form-input" value={toEmail} onChange={e => setToEmail(e.target.value)} placeholder="prospect@email.com" />
+                  <label className="form-label">Phone <span style={{color:"var(--muted)",fontWeight:400}}>Optional</span></label>
+                  <input className="form-input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="312-555-0192" />
                 </div>
               </div>
-              <button className="btn-primary" disabled={loading || !rawText.trim() || !toEmail.trim()} onClick={handleInject}>
+              <div className="form-group">
+                <label className="form-label">Location <span style={{color:"var(--muted)",fontWeight:400}}>Optional</span></label>
+                <input className="form-input" value={location} onChange={e => setLocation(e.target.value)} placeholder="Chicago, IL" />
+              </div>
+            </div>
+          </div>
+          <div className="section-card">
+            <div className="section-card-header"><span className="section-card-title">Event</span></div>
+            <div className="section-card-body">
+              <div className="form-group">
+                <label className="form-label">Event Type</label>
+                <select className="form-select" value={eventType} onChange={e => setEventType(e.target.value)}>
+                  {EVENT_TYPES.map(t => <option key={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Notes <span style={{color:"var(--muted)",fontWeight:400}}>Optional</span></label>
+                <textarea className="form-textarea" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Sold real estate portfolio for $18M, recently closed, no current advisor..." style={{ minHeight: 100 }} />
+              </div>
+              <button className="btn-primary" disabled={loading || !firstName.trim() || !email.trim()} onClick={handleInject}>
                 {loading ? "Injecting…" : "Inject Event"}
               </button>
             </div>
