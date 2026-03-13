@@ -25,7 +25,7 @@ const API = {
     ingest: (payload) => api("/triggers/", { method: "POST", body: JSON.stringify(payload) }),
   },
   replies: {
-    process: (payload) => api("/replies/process", { method: "POST", body: JSON.stringify(payload) }),
+    process: (payload) => api("/process_reply", { method: "POST", body: JSON.stringify(payload) }),
   },
   alerts: {
     joe: (payload) => api("/alerts/joe", { method: "POST", body: JSON.stringify(payload) }),
