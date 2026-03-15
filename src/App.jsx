@@ -36,13 +36,13 @@ const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --ink: #06111f; --ink-2: #0c1e35; --ink-3: #132844;
-    --rule: #1a3255; --rule-2: #234470;
-    --muted: #2e5a8a; --dim: #4a82b8; --mid: #7aaed8; --soft: #c0dcf0; --paper: #eaf4fc;
-    --signal: #4B9CD3; --signal-2: #82c4e8; --signal-dim: #1a4a7a;
-    --signal-glow: rgba(75,156,211,0.18); --signal-bg: rgba(75,156,211,0.07);
-    --hot: #c0392b; --hot-bg: #1a0404; --hot-border: #4a1010;
-    --warm-bg: #12200a; --cold-bg: #061828; --green: #2e8a50; --green-bg: #041410;
+    --ink: #ffffff; --ink-2: #f4f8fc; --ink-3: #e8f2fa;
+    --rule: #c8dff0; --rule-2: #b0cfea;
+    --muted: #7aaed8; --dim: #4a82b8; --mid: #2060a0; --soft: #0d3a6e; --paper: #06244a;
+    --signal: #4B9CD3; --signal-2: #1a6fb5; --signal-dim: #4B9CD3;
+    --signal-glow: rgba(75,156,211,0.20); --signal-bg: rgba(75,156,211,0.10);
+    --hot: #c0392b; --hot-bg: #fdf0ef; --hot-border: #f5c0bb;
+    --warm-bg: #fefae8; --cold-bg: #eaf4fc; --green: #1e7a40; --green-bg: #eaf7ef;
     --font-display: 'Playfair Display', Georgia, serif;
     --font-body: 'IBM Plex Sans', system-ui, sans-serif;
     --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
